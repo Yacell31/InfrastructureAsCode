@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to create and deploy a Lambda function
+
+Resources:
+  LambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'lambda.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: 'LambdaBasicExecution'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:*'
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: 'arn:aws:logs:*:*:*'
+
+  MyLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: 'YourLambdaFunctionName'
+      Handler: 'index.handler'
+      Runtime: 'nodejs18.x'
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          exports.handler = async function(event)  {
+            const { S3,PutObjectCommand  } = require("@aws-sdk/client-s3");
+
+            const s3Client = new S3({});
+              const params = 
+              {
+                  Bucket: 'YourAlreadyExistingS3BucketName',
+                  Key: 'index.html',
+                  Body: '<html><head><title>My Static Website</title></head><body> <h1>Hello from AWS S3 Static Website!</h1></body></html>',
+                  ContentType: 'text/html'
+                };
+
+                try {
+                  const command = new PutObjectCommand(params);
+                  const response = await s3Client.send(command);
+
+                    return {
+                        Status: 'SUCCESS',
+                        PhysicalResourceId: event.LogicalResourceId
+                    };
+                } catch (error) {
+                    return {
+                        Status: 'FAILED',
+                        Reason: error.message
+                    };
+                }
+
+          };
+
+Outputs:
+  LambdaFunctionARN:
+    Description: "The ARN of the Lambda function"
+    Value: !GetAtt MyLambdaFunction.Arn
